@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔐%3C/text%3E%3C/svg%3E" />
+  <title>Authenticator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 启动遮罩：检查 /api/status 时显示 -->
+    <div id="boot" class="screen">
+      <div class="spinner"></div>
+      <p>加载中…</p>
+    </div>
+
+    <!-- 未初始化：设置主密码 -->
+    <div id="setup" class="screen hidden">
+      <div class="card">
+        <h1>🔐 设置主密码</h1>
+        <p class="muted">首次使用，请设置一个主密码。它用于加密你的验证器密钥，<strong>无法找回</strong>，请务必牢记。</p>
+        <form id="setup-form">
+          <input type="password" id="setup-password" placeholder="主密码（至少 8 位）" autocomplete="new-password" required />
+          <input type="password" id="setup-confirm" placeholder="再次输入主密码" autocomplete="new-password" required />
+          <button type="submit" class="btn primary">创建</button>
+          <p id="setup-error" class="error hidden"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- 未登录：输入主密码 -->
+    <div id="login" class="screen hidden">
+      <div class="card">
+        <h1>🔑 登录</h1>
+        <form id="login-form">
+          <input type="password" id="login-password" placeholder="主密码" autocomplete="current-password" required autofocus />
+          <button type="submit" class="btn primary">解锁</button>
+          <p id="login-error" class="error hidden"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="main" class="screen hidden">
+      <header class="topbar">
+        <div class="title">🔐 Authenticator</div>
+        <div class="actions">
+          <button id="btn-add" class="btn" title="添加账户">＋ 添加</button>
+          <button id="btn-import" class="btn" title="导入备份">⬆ 导入</button>
+          <button id="btn-export" class="btn" title="导出备份">⬇ 导出</button>
+          <button id="btn-logout" class="btn" title="登出">⎋ 登出</button>
+        </div>
+      </header>
+
+      <div class="searchbar">
+        <input type="text" id="search" placeholder="🔍 搜索账户…" />
+      </div>
+
+      <div id="list" class="list"></div>
+      <div id="empty-tip" class="empty hidden">
+        <div class="empty-icon">🔑</div>
+        <p class="empty-title">还没有账户</p>
+        <div class="notice">
+          <p class="notice-title">⚠️ 重要提醒</p>
+          <p>本应用部署在共享环境中，请勿将某个服务<strong>唯一</strong>的双重验证凭据只存放在这里——一旦被他人误删，您将无法再登录该服务。</p>
+          <p>建议：在您的手机或其他个人设备上保留同一凭据的备份，将此处作为<strong>辅助</strong>验证渠道使用。</p>
+        </div>
+        <button id="btn-add-empty" class="btn primary">添加第一个账户</button>
+      </div>
+    </div>
+
+    <!-- 添加/编辑 弹窗 -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card">
+        <h2 id="modal-title">添加账户</h2>
+        <div class="notice notice-sm">
+          <p>⚠️ 共享环境，请勿将服务的<strong>唯一</strong>凭据仅存于此处。建议同时在个人设备保留备份。</p>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="manual">手动</button>
+          <button class="tab" data-tab="uri">粘贴链接</button>
+          <button class="tab" data-tab="qr">扫描二维码</button>
+        </div>
+
+        <form id="account-form">
+          <div class="tab-pane" data-pane="manual">
+            <label>名称 / Issuer<input type="text" id="f-issuer" placeholder="GitHub" /></label>
+            <label>账号 / Label<input type="text" id="f-label" placeholder="user@example.com" /></label>
+            <label>密钥 / Secret (Base32)<input type="text" id="f-secret" placeholder="JBSWY3DPEHPK3PXP" required /></label>
+            <div class="row">
+              <label>位数<select id="f-digits"><option>6</option><option>8</option></select></label>
+              <label>周期(秒)<input type="number" id="f-period" value="30" min="1" /></label>
+              <label>算法<select id="f-algo"><option>SHA1</option><option>SHA256</option><option>SHA512</option></select></label>
+            </div>
+          </div>
+
+          <div class="tab-pane hidden" data-pane="uri">
+            <label>otpauth:// 链接<textarea id="f-uri" rows="4" placeholder="otpauth://totp/GitHub:user@example.com?secret=...&issuer=GitHub"></textarea></label>
+            <button type="button" id="btn-parse-uri" class="btn">解析并填充</button>
+            <p id="uri-msg" class="error hidden"></p>
+          </div>
+
+          <div class="tab-pane hidden" data-pane="qr">
+            <label class="upload">
+              <input type="file" id="f-qr" accept="image/*" hidden />
+              <span>📤 点击上传二维码图片</span>
+            </label>
+            <p id="qr-msg" class="error hidden"></p>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" id="modal-cancel" class="btn">取消</button>
+            <button type="submit" class="btn primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="vendor/jsqr-1.4.0.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

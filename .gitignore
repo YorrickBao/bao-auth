@@ -1,0 +1,21 @@
+# 二进制产物
+/bao-auth
+/baoauth
+/bao-auth.exe
+*.exe
+
+# 依赖
+/vendor/
+
+# 数据库（运行时生成，含加密密钥，绝不提交）
+/data/*.db
+/data/*.db-*
+
+# 编辑器/系统
+.DS_Store
+*.swp
+.idea/
+.vscode/
+.playwright-mcp/
+.zcode/
+
