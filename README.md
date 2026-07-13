@@ -39,6 +39,7 @@ go build -o bao-auth .
 |------|--------|------|
 | `--addr` | `127.0.0.1:3000` | 监听地址 |
 | `--data` | `./data` | 数据目录（SQLite 文件存放处） |
+| `--prefix` | `""`（根路径） | URL 路径前缀，用于 nginx 子路径反代部署（如 `/otp`） |
 
 示例：`./bao-auth --addr 0.0.0.0:3000 --data /var/lib/bao-auth`
 
@@ -78,6 +79,56 @@ User=baoauth
 [Install]
 WantedBy=multi-user.target
 ```
+
+### nginx 反向代理
+
+建议用 nginx 反代并配置 HTTPS。有两种部署形态：
+
+**形态一：独立子域名（推荐，最省心）**
+
+应用运行在根路径，nginx 按域名分流，零配置：
+
+```nginx
+server {
+    server_name otp.example.com;
+    listen 443 ssl http2;
+    # ssl_certificate ...
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+**形态二：路径前缀（与其他服务共用域名）**
+
+启动时指定 `--prefix`，nginx 原样转发（**不要**带末尾 `/` 做 rewrite，应用自己处理前缀）：
+
+```bash
+./bao-auth --addr 127.0.0.1:3000 --prefix /otp
+```
+
+```nginx
+server {
+    server_name example.com;
+    listen 443 ssl http2;
+    # ssl_certificate ...
+
+    # 其他服务
+    location /app1/ { ... }
+
+    # bao-auth：注意 proxy_pass 末尾无 /，保留 /otp 前缀转发
+    location /otp/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+访问 `https://example.com/otp/` 即可。`--prefix` 会同时作用于：后端 API 路由（`/otp/api/...`）、静态资源（`/otp/app.js`）、以及注入到 `index.html` 的前端请求基址，确保子路径下所有链接正确。
 
 ## 安全模型
 

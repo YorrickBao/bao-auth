@@ -4,6 +4,8 @@
 
   // ---- 状态 ----
   const TOKEN_KEY = "bao_token";
+  // BASE 为部署路径前缀（根路径部署时为空串），由 index.html 注入。
+  const BASE = window.__BASE__ || "";
   let token = sessionStorage.getItem(TOKEN_KEY) || "";
   let accounts = [];      // 后端返回的账户（含实时 code）
   let filter = "";
@@ -29,7 +31,7 @@
       body = JSON.stringify(body);
     }
     if (token) headers["Authorization"] = "Bearer " + token;
-    const res = await fetch(path, Object.assign({}, opts, { headers, body }));
+    const res = await fetch(BASE + path, Object.assign({}, opts, { headers, body }));
     let data = null;
     const text = await res.text();
     if (text) {

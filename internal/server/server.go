@@ -40,14 +40,18 @@ const tokenIssuer = "bao-auth"
 
 // Server 持有所有依赖。
 type Server struct {
-	store *store.Store
-	vault *auth.Vault
+	store  *store.Store
+	vault  *auth.Vault
+	prefix string // URL 路径前缀，如 "/otp"；根路径部署时为 ""
 }
 
-// New 创建 Server。
-func New(s *store.Store, v *auth.Vault) *Server {
-	return &Server{store: s, vault: v}
+// New 创建 Server。prefix 用于子路径部署（如反代到 /otp/），根路径传 ""。
+func New(s *store.Store, v *auth.Vault, prefix string) *Server {
+	return &Server{store: s, vault: v, prefix: prefix}
 }
+
+// route 把内部相对路径（如 "/api/status"）拼成带前缀的完整路由。
+func (s *Server) route(p string) string { return s.prefix + p }
 
 // --- 公共响应辅助 ---
 
@@ -63,18 +67,18 @@ func errJSON(w http.ResponseWriter, code int, msg string) {
 
 // --- handler 方法挂在 Server 上，由 Register 挂到 mux ---
 
-// Register 把路由挂到给定的 mux 上。
+// Register 把路由挂到给定的 mux 上。所有路径会加上 Server.prefix 前缀。
 func (s *Server) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/api/status", s.handleStatus)
-	mux.HandleFunc("/api/setup", s.handleSetup)
-	mux.HandleFunc("/api/login", s.handleLogin)
+	mux.HandleFunc(s.route("/api/status"), s.handleStatus)
+	mux.HandleFunc(s.route("/api/setup"), s.handleSetup)
+	mux.HandleFunc(s.route("/api/login"), s.handleLogin)
 	// 需要 JWT 的接口
-	mux.HandleFunc("/api/logout", s.withAuth(s.handleLogout))
-	mux.HandleFunc("/api/accounts", s.withAuth(s.handleAccountsRoot))
-	mux.HandleFunc("/api/accounts/", s.withAuth(s.handleAccountItem)) // 带 id 的 PUT/DELETE
-	mux.HandleFunc("/api/parse-uri", s.withAuth(s.handleParseURI))
-	mux.HandleFunc("/api/export", s.withAuth(s.handleExport))
-	mux.HandleFunc("/api/import", s.withAuth(s.handleImport))
+	mux.HandleFunc(s.route("/api/logout"), s.withAuth(s.handleLogout))
+	mux.HandleFunc(s.route("/api/accounts"), s.withAuth(s.handleAccountsRoot))
+	mux.HandleFunc(s.route("/api/accounts/"), s.withAuth(s.handleAccountItem)) // 带 id 的 PUT/DELETE
+	mux.HandleFunc(s.route("/api/parse-uri"), s.withAuth(s.handleParseURI))
+	mux.HandleFunc(s.route("/api/export"), s.withAuth(s.handleExport))
+	mux.HandleFunc(s.route("/api/import"), s.withAuth(s.handleImport))
 }
 
 // --- 中间件 ---
@@ -380,8 +384,8 @@ func (s *Server) createAccount(w http.ResponseWriter, r *http.Request) {
 // --- /api/accounts/{id} (PUT 编辑 / DELETE 删除) ---
 
 func (s *Server) handleAccountItem(w http.ResponseWriter, r *http.Request) {
-	// 路径形如 /api/accounts/{id}
-	id := strings.TrimPrefix(r.URL.Path, "/api/accounts/")
+	// 路径形如 {prefix}/api/accounts/{id}
+	id := strings.TrimPrefix(r.URL.Path, s.route("/api/accounts/"))
 	if id == "" {
 		errJSON(w, http.StatusBadRequest, "缺少 id")
 		return
