@@ -420,6 +420,27 @@
   $("btn-qr-camera").addEventListener("click", openCamera);
   $("btn-qr-stop").addEventListener("click", stopCamera);
 
+  // 粘贴图片：仅在弹窗打开且处于扫码 tab 时响应，方便 PC 用户截图后直接 Ctrl+V
+  document.addEventListener("paste", (e) => {
+    if ($("modal").classList.contains("hidden")) return;
+    if (!document.querySelector('.tab[data-tab="qr"]').classList.contains("active")) return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+      if (it.type.startsWith("image/")) {
+        const file = it.getAsFile();
+        if (file) {
+          hideError("qr");
+          decodeQRFile(file).then(handleQRResult).catch((err) => {
+            showError("qr", "无法识别粘贴的二维码：" + err.message);
+          });
+          e.preventDefault(); // 阻止粘贴图片的其他副作用
+          return;
+        }
+      }
+    }
+  });
+
   async function openCamera() {
     hideError("qr");
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
