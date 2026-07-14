@@ -1,7 +1,7 @@
 # bao-auth
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.26.4-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/YorrickBao/bao-auth?logo=go&logoColor=white)](https://github.com/YorrickBao/bao-auth/blob/main/go.mod)
 
 一个自托管、单二进制的 Web 版 TOTP 验证器（Google Authenticator / Authy 的自部署替代）。
 
