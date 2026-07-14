@@ -62,7 +62,24 @@ scp bao-auth user@server:~/
 # 建议用 nginx/caddy 反代并配置 HTTPS
 ```
 
-### systemd 服务示例
+### systemd 服务部署
+
+**1. 创建专用用户**（不要用 root 运行。遵循最小权限原则，降低应用被攻破时的爆炸半径）：
+
+```bash
+# 创建系统用户：无密码、无法登录，纯粹用来跑服务
+sudo useradd -r -s /usr/sbin/nologin baoauth
+```
+
+**2. 准备目录与权限**：
+
+```bash
+sudo mkdir -p /opt/bao-auth/data
+sudo chown -R baoauth:baoauth /opt/bao-auth
+sudo chmod 700 /opt/bao-auth/data   # 只有 baoauth 能读数据
+```
+
+**3. systemd 服务（带安全加固）**：
 
 ```ini
 # /etc/systemd/system/bao-auth.service
@@ -75,9 +92,23 @@ ExecStart=/opt/bao-auth/bao-auth --addr 127.0.0.1:3000 --data /opt/bao-auth/data
 WorkingDirectory=/opt/bao-auth
 Restart=on-failure
 User=baoauth
+Group=baoauth
+
+# 安全加固（systemd 沙箱选项，Go 程序均兼容）
+NoNewPrivileges=true            # 禁止提权
+ProtectSystem=strict            # 文件系统只读（除下方显式放开）
+ProtectHome=true                # 禁止访问 /home
+ReadWritePaths=/opt/bao-auth/data  # 只允许写数据目录
+PrivateTmp=true                 # 独立 /tmp，隔离临时文件
 
 [Install]
 WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now bao-auth
+sudo systemctl status bao-auth   # 确认运行中
 ```
 
 ### nginx 反向代理
