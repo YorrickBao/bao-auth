@@ -171,31 +171,33 @@ location /otp/ {
 
 升级只需替换二进制文件并重启。**不能直接覆盖正在运行的二进制**（Linux 会报 `Text file busy`），需先 rename 再替换。
 
-仓库提供了带**自动回滚**的升级脚本：
+### 一键发布（推荐）
+
+本地一条命令完成编译 + 上传 + 远程升级：
 
 ```bash
-# 1. 本地编译并上传新版本
+./release.sh user@server                      # 默认 linux/amd64
+./release.sh user@server linux/arm64          # 指定平台
+SERVER=user@server TARGET=linux/arm64 ./release.sh   # 或用环境变量
+```
+
+`release.sh` 会调用 `build.sh` 编译 → `scp` 上传 → 远程执行 `upgrade.sh`。
+其中 `upgrade.sh` 带**自动回滚**：rename 旧二进制 → 替换 → 重启 → 检查状态，启动失败则恢复旧版本。
+
+> 可用环境变量：`SERVER`、`TARGET`（默认 `linux/amd64`）、`REMOTE_DIR`（默认 `/opt/bao-auth`）、`SSH_OPTS`（传额外 ssh 参数如 `-i ~/.ssh/id_rsa -p 2222`）。
+
+### 手动升级
+
+```bash
+# 本地编译 + 上传
 ./build.sh linux/amd64
 scp dist/bao-auth-linux-amd64 user@server:/opt/bao-auth/bao-auth.new
 
-# 2. 在服务器执行升级
+# 服务器上执行升级
 ssh user@server 'cd /opt/bao-auth && sudo ./upgrade.sh bao-auth.new'
 ```
 
-升级脚本会：rename 旧二进制 → 替换新二进制 → 重启服务 → 检查状态。启动失败则自动回滚到旧版本。
-
 > 升级**不丢数据**——SQLite 数据库在 `data/` 目录，替换二进制不碰它。服务器重启后需重新登录（KEK 从内存清除，这是设计使然）。
-
-手动升级（不使用脚本）：
-
-```bash
-cd /opt/bao-auth
-sudo mv bao-auth bao-auth.old && sudo mv bao-auth.new bao-auth
-sudo chown baoauth:baoauth bao-auth && sudo chmod +x bao-auth
-sudo systemctl restart bao-auth
-sudo systemctl status bao-auth    # 确认正常后
-sudo rm bao-auth.old
-```
 
 ## API
 
@@ -222,6 +224,7 @@ bao-auth/
 ├── main.go                  # 入口，embed 静态文件
 ├── build.sh                 # 跨平台构建脚本
 ├── upgrade.sh               # 服务器升级脚本（带回滚）
+├── release.sh               # 一键发布：编译+上传+升级
 ├── internal/
 │   ├── crypto/crypto.go     # scrypt 派生、AES-GCM、bcrypt
 │   ├── totp/                # TOTP 码生成
