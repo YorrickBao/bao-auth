@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -338,8 +339,14 @@ func (s *Server) listAccounts(w http.ResponseWriter, r *http.Request) {
 			entry["code"] = ""
 			entry["error"] = "解密失败"
 		} else {
-			code, err := mytotp.Generate(string(plain), uint(a.Period), a.Digits, a.Algorithm)
-			if err != nil {
+			var code string
+			var codeErr error
+			if strings.EqualFold(a.Algorithm, "STEAM") {
+				code, codeErr = mytotp.GenerateSteam(string(plain), uint(a.Period))
+			} else {
+				code, codeErr = mytotp.Generate(string(plain), uint(a.Period), a.Digits, a.Algorithm)
+			}
+			if codeErr != nil {
 				entry["code"] = ""
 				entry["error"] = "生成验证码失败"
 			} else {
@@ -455,6 +462,11 @@ func (s *Server) handleParseURI(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, err := parseOTPAuth(req.URI)
 	if err != nil {
+		// fallback：尝试解析非 otpauth 格式（纯 secret / 带 secret= 的 URL）
+		if loose := parseLooseSecret(req.URI); loose != nil {
+			writeJSON(w, http.StatusOK, loose)
+			return
+		}
 		errJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -703,6 +715,10 @@ func normalizeAccountReq(req accountReq) accountReq {
 	if req.Period == 0 {
 		req.Period = 30
 	}
+	// Steam Guard 固定输出 5 位，忽略前端传入的 digits
+	if req.Algorithm == "STEAM" {
+		req.Digits = 5
+	}
 	return req
 }
 
@@ -738,6 +754,11 @@ func parseOTPAuth(raw string) (*parsedURI, error) {
 	if err != nil {
 		return nil, fmt.Errorf("解析失败：%w", err)
 	}
+	// HOTP 是计数器式，当前数据模型不支持 counter 字段，明确拒绝
+	// （避免静默保存后生成错误的 TOTP 码）
+	if k.Type() == "hotp" {
+		return nil, errors.New("暂不支持 HOTP（计数器式）令牌，仅支持 TOTP")
+	}
 	p := &parsedURI{
 		Secret:    k.Secret(),
 		Issuer:    k.Issuer(),
@@ -761,10 +782,55 @@ func parseOTPAuth(raw string) (*parsedURI, error) {
 		p.Issuer = strings.TrimSpace(parts[0])
 		p.Label = strings.TrimSpace(parts[1])
 	}
+	// Steam Guard：issuer 为 Steam 时用专用算法（5 位字母数字码）。
+	// secret 仍是普通 Base32，只是输出字符表不同。
+	if strings.EqualFold(p.Issuer, "Steam") {
+		p.Algorithm = "STEAM"
+		p.Digits = 5
+	}
 	if err := validateSecretBase32(p.Secret); err != nil {
 		return nil, err
 	}
 	return p, nil
+}
+
+// parseLooseSecret 处理非 otpauth:// 格式的输入，尽量提取出 Base32 secret。
+// 支持：纯 Base32 字符串、带 secret= 参数的普通 URL。
+// 返回 nil 表示无法识别。
+func parseLooseSecret(raw string) *parsedURI {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	// 1. 尝试当作 URL，找 secret 查询参数（非 otpauth 的自定义格式）
+	//    如 https://example.com/?secret=JBSWY3DPEHPK3PXP
+	if u, err := url.Parse(raw); err == nil && u.Scheme != "" && u.Scheme != "otpauth" {
+		if s := strings.TrimSpace(u.Query().Get("secret")); s != "" {
+			clean := strings.ReplaceAll(s, " ", "")
+			if isValidBase32Chars(clean) {
+				return &parsedURI{Secret: clean, Algorithm: "SHA1", Digits: 6, Period: 30}
+			}
+		}
+	}
+	// 2. 尝试当作纯 Base32（去掉空格后只含 [A-Z2-7]，长度合理）
+	clean := strings.ReplaceAll(strings.ToUpper(raw), " ", "")
+	if isValidBase32Chars(clean) && len(clean) >= 8 {
+		return &parsedURI{Secret: clean, Algorithm: "SHA1", Digits: 6, Period: 30}
+	}
+	return nil
+}
+
+// isValidBase32Chars 判断字符串是否仅含合法 Base32 字符（无 padding）。
+func isValidBase32Chars(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= 'A' && c <= 'Z') || (c >= '2' && c <= '7')) {
+			return false
+		}
+	}
+	return true
 }
 
 // validateSecretBase32 仅校验编码格式（不调用 GenerateCode，避免对非标准大小写报错）。
