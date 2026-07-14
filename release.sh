@@ -76,11 +76,12 @@ echo "  ${GREEN}✓${RESET} $(du -h "$BINARY" | cut -f1) $BINARY"
 
 echo "${YELLOW}▶ 上传到 $SERVER:$REMOTE_DIR/ ...${RESET}"
 # shellcheck disable=SC2086 # SSH_OPTS 需要按词拆分，故不加引号
-scp $SSH_OPTS "$BINARY" "$SERVER:$REMOTE_DIR/bao-auth.new"
-echo "  ${GREEN}✓${RESET} 上传完成"
+ssh $SSH_OPTS "$SERVER" "mkdir -p $REMOTE_DIR"   # 确保远程目录存在（首次部署）
+scp $SSH_OPTS "$BINARY" upgrade.sh "$SERVER:$REMOTE_DIR/"
+echo "  ${GREEN}✓${RESET} 二进制 + upgrade.sh 上传完成"
 
 echo "${YELLOW}▶ 远程升级 ...${RESET}"
 # shellcheck disable=SC2086
-ssh $SSH_OPTS "$SERVER" "cd $REMOTE_DIR && sudo ./upgrade.sh bao-auth.new"
+ssh $SSH_OPTS "$SERVER" "cd $REMOTE_DIR && chmod +x upgrade.sh && sudo ./upgrade.sh bao-auth.new"
 
 echo "${GREEN}✓ 发布完成${RESET}"
