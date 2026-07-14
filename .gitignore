@@ -2,6 +2,7 @@
 /bao-auth
 /baoauth
 /bao-auth.exe
+/dist/
 *.exe
 
 # 依赖
