@@ -238,6 +238,48 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 }
 .upload:hover { border-color: var(--primary); color: var(--text); }
 
+/* 摄像头扫码区 */
+.qr-camera {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 280px;
+  margin: 0 auto;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.qr-camera video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1); /* 部分前置摄像头预览需镜像；背面经 facingMode 已正常 */
+}
+.qr-camera video.mirror-off { transform: none; }
+/* 未启用摄像头时隐藏 video，显示 overlay 占位 */
+.qr-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; color: var(--muted);
+  background: var(--panel-2);
+  font-size: 13px; text-align: center; padding: 16px;
+}
+.qr-overlay.active { display: none; } /* 摄像头开启后隐藏占位层 */
+.qr-overlay .qr-frame {
+  width: 60%; height: 60%;
+  border: 2px solid var(--success);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.0);
+}
+.qr-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; margin-top: 12px;
+}
+.upload-inline { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
 /* Toast */

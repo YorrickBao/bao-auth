@@ -365,6 +365,7 @@
   function closeModal() {
     $("modal").classList.add("hidden");
     editingId = null;
+    stopCamera(); // 关弹窗时务必释放摄像头，避免指示灯常亮
   }
   function resetForm() {
     $("account-form").reset();
@@ -404,16 +405,99 @@
     }
   });
 
-  // ---- 扫描二维码 ----
+  // ---- 扫描二维码：摄像头 + 上传图片 ----
+
+  let qrStream = null;      // MediaStream
+  let qrScanTimer = null;   // 帧扫描定时器
+  let qrCanvas = document.createElement("canvas");
+  let qrCtx = qrCanvas.getContext("2d", { willReadFrequently: true });
+
+  const qrVideo = $("qr-video");
+  const qrOverlay = $("qr-overlay");
+  const qrStatus = $("qr-status");
+
+  // 启动摄像头扫描（优先背面摄像头）
+  $("btn-qr-camera").addEventListener("click", openCamera);
+  $("btn-qr-stop").addEventListener("click", stopCamera);
+
+  async function openCamera() {
+    hideError("qr");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError("qr", "此浏览器不支持摄像头，请改用上传图片。");
+      return;
+    }
+    try {
+      // facingMode: ideal 'environment' = 背面摄像头。
+      // 用 ideal 而非 exact：手机上优先选背面，桌面无背面时也能降级。
+      qrStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+    } catch (err) {
+      const msg = err.name === "NotAllowedError"
+        ? "摄像头权限被拒绝，请在浏览器设置中允许后重试。"
+        : "无法访问摄像头：" + err.message + "（也可改用上传图片）";
+      showError("qr", msg);
+      return;
+    }
+
+    qrVideo.srcObject = qrStream;
+    qrVideo.classList.add("mirror-off"); // 背面摄像头无需镜像
+    await qrVideo.play();
+
+    qrOverlay.classList.add("active"); // 隐藏占位层，露出实时画面
+    $("btn-qr-camera").classList.add("hidden");
+    $("btn-qr-stop").classList.remove("hidden");
+    qrStatus.textContent = "将二维码对准摄像头…";
+
+    // 定时抓取视频帧解码（每 250ms 一次，平衡性能与响应）
+    qrScanTimer = setInterval(scanFrame, 250);
+  }
+
+  function stopCamera() {
+    if (qrScanTimer) { clearInterval(qrScanTimer); qrScanTimer = null; }
+    if (qrStream) {
+      qrStream.getTracks().forEach(t => t.stop()); // 释放摄像头，熄灭指示灯
+      qrStream = null;
+    }
+    qrVideo.srcObject = null;
+    qrOverlay.classList.remove("active"); // 恢复占位层
+    $("btn-qr-camera").classList.remove("hidden");
+    $("btn-qr-stop").classList.add("hidden");
+    qrStatus.textContent = "摄像头已关闭";
+  }
+
+  // 从当前视频帧尝试解码二维码
+  function scanFrame() {
+    if (!qrStream || qrVideo.readyState < 2) return; // HAVE_CURRENT_DATA
+    const w = qrVideo.videoWidth, h = qrVideo.videoHeight;
+    if (!w || !h) return;
+    qrCanvas.width = w; qrCanvas.height = h;
+    qrCtx.drawImage(qrVideo, 0, 0, w, h);
+    const imgData = qrCtx.getImageData(0, 0, w, h);
+    const code = jsQR(imgData.data, w, h);
+    if (code && code.data) {
+      handleQRResult(code.data);
+    }
+  }
+
+  // 扫到码后的统一处理（摄像头和上传共用）
+  function handleQRResult(uri) {
+    stopCamera();
+    $("f-uri").value = uri;
+    hideError("qr");
+    // 复用 URI 解析逻辑
+    $("btn-parse-uri").click();
+  }
+
+  // 上传图片扫码（保留原有功能）
   $("f-qr").addEventListener("change", async (e) => {
     hideError("qr");
     const file = e.target.files[0];
     if (!file) return;
     try {
-      const uri = await decodeQR(file);
-      $("f-uri").value = uri;
-      // 自动触发解析
-      $("btn-parse-uri").click();
+      const uri = await decodeQRFile(file);
+      handleQRResult(uri);
     } catch (err) {
       showError("qr", "无法识别二维码：" + err.message);
     } finally {
@@ -421,7 +505,7 @@
     }
   });
 
-  function decodeQR(file) {
+  function decodeQRFile(file) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
@@ -430,7 +514,7 @@
         const ctx = cv.getContext("2d");
         ctx.drawImage(img, 0, 0);
         const imgData = ctx.getImageData(0, 0, cv.width, cv.height);
-        const code = jsQR(imgData.data, imgData.width, imgData.height);
+        const code = jsQR(imgData.data, cv.width, cv.height);
         if (code && code.data) resolve(code.data);
         else reject(new Error("图片中未找到二维码"));
       };

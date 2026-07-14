@@ -103,10 +103,21 @@
           </div>
 
           <div class="tab-pane hidden" data-pane="qr">
-            <label class="upload">
-              <input type="file" id="f-qr" accept="image/*" hidden />
-              <span>📤 点击上传二维码图片</span>
-            </label>
+            <div class="qr-camera">
+              <video id="qr-video" playsinline muted></video>
+              <div id="qr-overlay" class="qr-overlay">
+                <div class="qr-frame"></div>
+                <p id="qr-status">正在启动摄像头…</p>
+              </div>
+            </div>
+            <div class="qr-actions">
+              <button type="button" id="btn-qr-camera" class="btn primary">📹 扫描二维码</button>
+              <button type="button" id="btn-qr-stop" class="btn hidden">⏹ 停止</button>
+              <label class="btn upload-inline">
+                <input type="file" id="f-qr" accept="image/*" hidden />
+                📁 上传图片
+              </label>
+            </div>
             <p id="qr-msg" class="error hidden"></p>
           </div>
 
