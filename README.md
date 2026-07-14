@@ -176,15 +176,19 @@ location /otp/ {
 本地一条命令完成编译 + 上传 + 远程升级：
 
 ```bash
-./release.sh user@server                      # 默认 linux/amd64
-./release.sh user@server linux/arm64          # 指定平台
-SERVER=user@server TARGET=linux/arm64 ./release.sh   # 或用环境变量
+./release.sh -s user@server                           # 最简（默认 linux/amd64）
+./release.sh -s user@server -t linux/arm64            # 指定平台
+./release.sh -s user@server -o "-p 2222"              # 附加 SSH 参数
 ```
+
+选项：
+- `-s` SSH 目标（`user@server`），必填
+- `-t` 目标平台，默认 `linux/amd64`
+- `-d` 远程目录，默认 `/opt/bao-auth`
+- `-o` 额外 SSH 参数，如 `"-i ~/.ssh/key -p 2222"`
 
 `release.sh` 会调用 `build.sh` 编译 → `scp` 上传 → 远程执行 `upgrade.sh`。
 其中 `upgrade.sh` 带**自动回滚**：rename 旧二进制 → 替换 → 重启 → 检查状态，启动失败则恢复旧版本。
-
-> 可用环境变量：`SERVER`、`TARGET`（默认 `linux/amd64`）、`REMOTE_DIR`（默认 `/opt/bao-auth`）、`SSH_OPTS`（传额外 ssh 参数如 `-i ~/.ssh/id_rsa -p 2222`）。
 
 ### 手动升级
 

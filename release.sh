@@ -2,31 +2,59 @@
 # release.sh：本地一键编译 + 上传 + 远程升级。
 #
 # 用法：
-#   ./release.sh                              # 用默认/环境变量
-#   ./release.sh user@server                  # 指定服务器（SSH 目标）
-#   ./release.sh user@server linux/arm64      # 指定服务器 + 目标平台
-#   TARGET=linux/arm64 ./release.sh user@server
+#   ./release.sh -s user@server                        # 最简（默认 linux/amd64）
+#   ./release.sh -s user@server -t linux/arm64         # 指定平台
+#   ./release.sh -s user@server -d /opt/bao-auth       # 指定远程目录
+#   ./release.sh -s user@server -o "-p 2222"           # 附加 SSH 参数
 #
-# 参数优先级：命令行 > 环境变量 > 默认值。
-# 可用环境变量：SERVER、TARGET、REMOTE_DIR、SSH_OPTS
+# 选项：
+#   -s  SSH 目标（user@server），必填
+#   -t  目标平台，默认 linux/amd64
+#   -d  远程目录，默认 /opt/bao-auth
+#   -o  额外 SSH 参数（如 "-i key -p 2222"）
+#   -h  显示帮助
 set -euo pipefail
 
-# --- 参数解析 ---
-SERVER="${SERVER:-}"
-TARGET="${TARGET:-linux/amd64}"
-REMOTE_DIR="${REMOTE_DIR:-/opt/bao-auth}"
-SSH_OPTS="${SSH_OPTS:-}"
+usage() {
+  cat <<EOF
+用法: $0 -s <user@server> [-t target] [-d dir] [-o ssh_opts]
 
-# 命令行参数覆盖
-if [ $# -ge 1 ]; then SERVER="$1"; fi
-if [ $# -ge 2 ]; then TARGET="$2"; fi
+选项:
+  -s  SSH 目标，如 deploy@10.0.0.1（必填）
+  -t  目标平台，默认 linux/amd64
+  -d  远程目录，默认 /opt/bao-auth
+  -o  额外 SSH 参数，如 "-i ~/.ssh/key -p 2222"
+  -h  显示本帮助
+
+示例:
+  $0 -s deploy@prod
+  $0 -s deploy@prod -t linux/arm64
+  $0 -s deploy@prod -o "-p 2222"
+EOF
+}
+
+# --- 解析参数 ---
+SERVER=""
+TARGET="linux/amd64"
+REMOTE_DIR="/opt/bao-auth"
+SSH_OPTS=""
+
+while getopts ":s:t:d:o:h" opt; do
+  case $opt in
+    s) SERVER="$OPTARG" ;;
+    t) TARGET="$OPTARG" ;;
+    d) REMOTE_DIR="$OPTARG" ;;
+    o) SSH_OPTS="$OPTARG" ;;
+    h) usage; exit 0 ;;
+    \?) echo "未知选项: -$OPTARG" >&2; usage; exit 1 ;;
+    :)  echo "选项 -$OPTARG 需要参数" >&2; usage; exit 1 ;;
+  esac
+done
 
 if [ -z "$SERVER" ]; then
-  echo "用法: $0 <user@server> [target]"
-  echo "  或: SERVER=user@server $0"
+  echo "错误：缺少必填选项 -s" >&2
   echo
-  echo "  target 默认 linux/amd64，可选 linux/arm64 等"
-  echo "  可用环境变量: SERVER TARGET REMOTE_DIR SSH_OPTS"
+  usage
   exit 1
 fi
 
@@ -47,10 +75,12 @@ echo "${YELLOW}▶ 编译 $TARGET ...${RESET}"
 echo "  ${GREEN}✓${RESET} $(du -h "$BINARY" | cut -f1) $BINARY"
 
 echo "${YELLOW}▶ 上传到 $SERVER:$REMOTE_DIR/ ...${RESET}"
+# shellcheck disable=SC2086 # SSH_OPTS 需要按词拆分，故不加引号
 scp $SSH_OPTS "$BINARY" "$SERVER:$REMOTE_DIR/bao-auth.new"
 echo "  ${GREEN}✓${RESET} 上传完成"
 
 echo "${YELLOW}▶ 远程升级 ...${RESET}"
+# shellcheck disable=SC2086
 ssh $SSH_OPTS "$SERVER" "cd $REMOTE_DIR && sudo ./upgrade.sh bao-auth.new"
 
 echo "${GREEN}✓ 发布完成${RESET}"
