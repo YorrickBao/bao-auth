@@ -373,6 +373,7 @@
     $("f-secret").placeholder = "JBSWY3DPEHPK3PXP";
     $("f-period").value = 30;
     hideError("uri"); hideError("qr");
+    switchTab("qr"); // 添加账户时回到默认 tab（最便捷的扫码）
   }
 
   // ---- Tab 切换 ----

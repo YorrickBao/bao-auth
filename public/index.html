@@ -79,30 +79,13 @@
           <p>⚠️ 共享环境，请勿将服务的<strong>唯一</strong>凭据仅存于此处。建议同时在个人设备保留备份。</p>
         </div>
         <div class="tabs">
-          <button class="tab active" data-tab="manual">手动</button>
+          <button class="tab active" data-tab="qr">扫描二维码</button>
           <button class="tab" data-tab="uri">粘贴链接</button>
-          <button class="tab" data-tab="qr">扫描二维码</button>
+          <button class="tab" data-tab="manual">手动</button>
         </div>
 
         <form id="account-form">
-          <div class="tab-pane" data-pane="manual">
-            <label>名称 / Issuer<input type="text" id="f-issuer" placeholder="GitHub" /></label>
-            <label>账号 / Label<input type="text" id="f-label" placeholder="user@example.com" /></label>
-            <label>密钥 / Secret (Base32)<input type="text" id="f-secret" placeholder="JBSWY3DPEHPK3PXP" required /></label>
-            <div class="row">
-              <label>位数<select id="f-digits"><option>6</option><option>8</option></select></label>
-              <label>周期(秒)<input type="number" id="f-period" value="30" min="1" /></label>
-              <label>算法<select id="f-algo"><option>SHA1</option><option>SHA256</option><option>SHA512</option></select></label>
-            </div>
-          </div>
-
-          <div class="tab-pane hidden" data-pane="uri">
-            <label>otpauth:// 链接<textarea id="f-uri" rows="4" placeholder="otpauth://totp/GitHub:user@example.com?secret=...&issuer=GitHub"></textarea></label>
-            <button type="button" id="btn-parse-uri" class="btn">解析并填充</button>
-            <p id="uri-msg" class="error hidden"></p>
-          </div>
-
-          <div class="tab-pane hidden" data-pane="qr">
+          <div class="tab-pane" data-pane="qr">
             <div class="qr-camera">
               <video id="qr-video" playsinline muted></video>
               <div id="qr-overlay" class="qr-overlay">
@@ -120,6 +103,23 @@
             </div>
             <p class="qr-hint">💡 也可截图后按 <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd> 粘贴二维码</p>
             <p id="qr-msg" class="error hidden"></p>
+          </div>
+
+          <div class="tab-pane hidden" data-pane="uri">
+            <label>otpauth:// 链接<textarea id="f-uri" rows="4" placeholder="otpauth://totp/GitHub:user@example.com?secret=...&issuer=GitHub"></textarea></label>
+            <button type="button" id="btn-parse-uri" class="btn">解析并填充</button>
+            <p id="uri-msg" class="error hidden"></p>
+          </div>
+
+          <div class="tab-pane hidden" data-pane="manual">
+            <label>名称 / Issuer<input type="text" id="f-issuer" placeholder="GitHub" /></label>
+            <label>账号 / Label<input type="text" id="f-label" placeholder="user@example.com" /></label>
+            <label>密钥 / Secret (Base32)<input type="text" id="f-secret" placeholder="JBSWY3DPEHPK3PXP" required /></label>
+            <div class="row">
+              <label>位数<select id="f-digits"><option>6</option><option>8</option></select></label>
+              <label>周期(秒)<input type="number" id="f-period" value="30" min="1" /></label>
+              <label>算法<select id="f-algo"><option>SHA1</option><option>SHA256</option><option>SHA512</option></select></label>
+            </div>
           </div>
 
           <div class="modal-actions">
