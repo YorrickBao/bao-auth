@@ -102,13 +102,13 @@
               </label>
             </div>
             <p class="qr-hint">💡 也可截图后按 <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd> 粘贴二维码</p>
-            <p id="qr-msg" class="error hidden"></p>
+            <p id="qr-error" class="error hidden"></p>
           </div>
 
           <div class="tab-pane hidden" data-pane="uri">
             <label>otpauth:// 链接<textarea id="f-uri" rows="4" placeholder="otpauth://totp/GitHub:user@example.com?secret=...&issuer=GitHub"></textarea></label>
             <button type="button" id="btn-parse-uri" class="btn">解析并填充</button>
-            <p id="uri-msg" class="error hidden"></p>
+            <p id="uri-error" class="error hidden"></p>
           </div>
 
           <div class="tab-pane hidden" data-pane="manual">

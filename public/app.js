@@ -383,16 +383,17 @@
   function switchTab(name) {
     document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
     document.querySelectorAll(".tab-pane").forEach(p => p.classList.toggle("hidden", p.dataset.pane !== name));
+    hideError("qr"); hideError("uri"); // 切 tab 时清除旧错误提示
   }
 
   // ---- 解析 otpauth URI ----
-  $("btn-parse-uri").addEventListener("click", async () => {
-    hideError("uri");
-    const uri = $("f-uri").value.trim();
-    if (!uri) return;
+  // parseURI 核心逻辑：解析 URI 并填充表单，errScreen 指定失败时错误显示在哪个 tab。
+  async function parseURI(uri, errScreen) {
+    uri = uri.trim();
+    if (!uri) return false;
+    hideError(errScreen);
     try {
       const p = await api("/api/parse-uri", { method: "POST", body: { uri } });
-      // 填充手动表单并切换过去
       $("f-issuer").value = p.issuer || "";
       $("f-label").value = p.label || "";
       $("f-secret").value = p.secret || "";
@@ -401,10 +402,14 @@
       $("f-algo").value = (p.algorithm || "SHA1");
       switchTab("manual");
       toast("已解析，请确认后保存");
+      return true;
     } catch (err) {
-      showError("uri", err.message);
+      showError(errScreen, err.message);
+      return false;
     }
-  });
+  }
+
+  $("btn-parse-uri").addEventListener("click", () => parseURI($("f-uri").value, "uri"));
 
   // ---- 扫描二维码：摄像头 + 上传图片 ----
 
@@ -507,9 +512,8 @@
   function handleQRResult(uri) {
     stopCamera();
     $("f-uri").value = uri;
-    hideError("qr");
-    // 复用 URI 解析逻辑
-    $("btn-parse-uri").click();
+    // 解析失败时错误显示在 qr tab（用户当前所在 tab），而非 uri tab
+    parseURI(uri, "qr");
   }
 
   // 上传图片扫码（保留原有功能）
