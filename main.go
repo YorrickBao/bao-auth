@@ -19,9 +19,9 @@ import (
 	"syscall"
 	"time"
 
-	"baoauth/internal/auth"
-	"baoauth/internal/server"
-	"baoauth/internal/store"
+	"bao-auth/internal/auth"
+	"bao-auth/internal/server"
+	"bao-auth/internal/store"
 )
 
 //go:embed all:public

@@ -30,10 +30,10 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	"baoauth/internal/auth"
-	"baoauth/internal/crypto"
-	"baoauth/internal/store"
-	mytotp "baoauth/internal/totp"
+	"bao-auth/internal/auth"
+	"bao-auth/internal/crypto"
+	"bao-auth/internal/store"
+	mytotp "bao-auth/internal/totp"
 )
 
 const tokenIssuer = "bao-auth"

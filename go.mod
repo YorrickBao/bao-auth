@@ -1,4 +1,4 @@
-module baoauth
+module bao-auth
 
 go 1.26.4
 
